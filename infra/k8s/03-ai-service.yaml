@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+  namespace: sysmon
+  labels:
+    app: ai-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-service
+  template:
+    metadata:
+      labels:
+        app: ai-service
+    spec:
+      containers:
+        - name: ai-service
+          image: YOUR_ACR.azurecr.io/sysmon-ai:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: sysmon-config
+            - secretRef:
+                name: sysmon-secrets
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "4"
+              memory: "4Gi"    # ML.NET training is memory-intensive
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-service
+  namespace: sysmon
+spec:
+  selector:
+    app: ai-service
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

@@ -1,0 +1,231 @@
+### SystemMonitor API — VS Code REST Client
+### Install "REST Client" extension, then click "Send Request" above any request
+
+@baseUrl = http://localhost:5000
+@contentType = application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HEALTH
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Liveness check
+GET {{baseUrl}}/api/v1/health/live
+
+### Readiness check (checks Cosmos + Service Bus)
+GET {{baseUrl}}/api/v1/health/ready
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SCHEMA NORMALIZATION — test the core feature
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Test a single attribute name resolution
+POST {{baseUrl}}/api/v1/schema/resolve/test
+Content-Type: {{contentType}}
+
+{
+  "rawName": "CPU %"
+}
+
+###
+
+### Test with a renamed attribute (simulates customer config change)
+POST {{baseUrl}}/api/v1/schema/resolve/test
+Content-Type: {{contentType}}
+
+{
+  "rawName": "processorUsage"
+}
+
+###
+
+### Test with something completely unknown
+POST {{baseUrl}}/api/v1/schema/resolve/test
+Content-Type: {{contentType}}
+
+{
+  "rawName": "some_totally_new_metric_xyz"
+}
+
+###
+
+### Bulk test — paste your customer's new attribute names here
+POST {{baseUrl}}/api/v1/schema/resolve/bulk-test
+Content-Type: {{contentType}}
+
+{
+  "rawNames": [
+    "cpu_percent",
+    "CPU %",
+    "processorUsage",
+    "cpu usage",
+    "CPU Utilization (%)",
+    "Processor(_Total)\\% Processor Time",
+    "memory_percent",
+    "mem usage",
+    "MemUsage",
+    "RAM %",
+    "Available MBytes",
+    "disk_write_mbps",
+    "DiskWriteBytes",
+    "WriteBytesPerSec",
+    "Full Name",
+    "something_unknown_xyz"
+  ]
+}
+
+###
+
+### Get all canonical attributes
+GET {{baseUrl}}/api/v1/schema/canonical
+
+###
+
+### Get unknown attributes pending review
+GET {{baseUrl}}/api/v1/schema/unknown
+
+###
+
+### Get unknown attribute stats
+GET {{baseUrl}}/api/v1/schema/unknown/stats
+
+###
+
+### Add a new alias to an existing canonical attribute
+POST {{baseUrl}}/api/v1/schema/canonical/cpu_percent/aliases
+Content-Type: {{contentType}}
+
+{
+  "alias": "my_custom_cpu_name"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INGESTION
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Ingest metrics with canonical names (normal flow)
+POST {{baseUrl}}/api/v1/ingest/metrics
+Content-Type: {{contentType}}
+
+{
+  "events": [
+    {
+      "agentId": "test-agent-001",
+      "hostName": "web-server-01",
+      "environment": "development",
+      "type": "System",
+      "values": {
+        "cpu_percent": 72.4,
+        "memory_percent": 61.2,
+        "error_rate": 0.02,
+        "p99_latency_ms": 245
+      }
+    }
+  ]
+}
+
+###
+
+### Ingest metrics with RENAMED attributes (tests normalization)
+### This simulates a customer upgrading their config
+POST {{baseUrl}}/api/v1/ingest/metrics
+Content-Type: {{contentType}}
+
+{
+  "events": [
+    {
+      "agentId": "test-agent-001",
+      "hostName": "web-server-01",
+      "environment": "development",
+      "type": "System",
+      "values": {
+        "processorUsage": 72.4,
+        "RAM %": 61.2,
+        "error_rate": 0.02,
+        "ResponseTimeP99": 245,
+        "a_brand_new_unknown_metric": 99.9
+      }
+    }
+  ]
+}
+
+###
+
+### Ingest an anomalous metric (should trigger alert)
+POST {{baseUrl}}/api/v1/ingest/metrics
+Content-Type: {{contentType}}
+
+{
+  "events": [
+    {
+      "agentId": "test-agent-001",
+      "hostName": "web-server-01",
+      "environment": "development",
+      "type": "System",
+      "values": {
+        "cpu_percent": 97.8,
+        "memory_percent": 94.1,
+        "error_rate": 0.45,
+        "p99_latency_ms": 4200
+      }
+    }
+  ]
+}
+
+###
+
+### Ingest logs
+POST {{baseUrl}}/api/v1/ingest/logs
+Content-Type: {{contentType}}
+
+{
+  "events": [
+    {
+      "agentId": "test-agent-001",
+      "hostName": "web-server-01",
+      "serviceName": "payments-api",
+      "environment": "development",
+      "level": "Error",
+      "message": "Database connection timeout after 30s"
+    },
+    {
+      "agentId": "test-agent-001",
+      "hostName": "web-server-01",
+      "serviceName": "payments-api",
+      "environment": "development",
+      "level": "Information",
+      "message": "Request processed in 142ms"
+    }
+  ]
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ANALYTICS
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Dashboard summary
+GET {{baseUrl}}/api/v1/analytics/summary
+
+###
+
+### Recent anomalies (last 60 min)
+GET {{baseUrl}}/api/v1/analytics/anomalies?offsetMinutes=60&limit=20
+
+###
+
+### Critical anomalies only
+GET {{baseUrl}}/api/v1/analytics/anomalies?minSeverity=Critical&offsetMinutes=60
+
+###
+
+### Agent health scores
+GET {{baseUrl}}/api/v1/analytics/health
+
+###
+
+### Metric time series (replace agentId with one from your running agents)
+GET {{baseUrl}}/api/v1/analytics/metrics/mock-agent-001/cpu_percent?windowMinutes=30
+
+###
+
+### Infrastructure status
+GET {{baseUrl}}/api/v1/analytics/infrastructure

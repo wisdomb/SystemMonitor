@@ -1,0 +1,45 @@
+# SystemMonitor
+
+Cloud-native distributed monitoring platform with AI-powered schema normalisation and real-time anomaly detection.
+
+---
+
+## The Problem
+
+When a data source updates and renames a field — `"CPU %"` becomes `"processor_usage"` — traditional monitoring tools silently return no data. Nobody knows why. Customers lose visibility.
+
+## The Solution
+
+A **6-tier schema normalisation engine** that resolves attribute name drift automatically. No manual remapping required.
+
+```
+Old tools:    "CPU %" → exact match → ✗ not found → NO DATA
+SysMonitor:   "CPU %" → fuzzy match → ✓ cpu_percent → data flows
+```
+
+Built across 5 independently deployable microservices on Azure AKS, with ML.NET anomaly detection and a real-time Vue 3 dashboard updated via SignalR.
+
+---
+
+## Stack
+
+C# / ASP.NET Core 8 · Vue 3 / TypeScript · Azure (AKS, Cosmos DB, Service Bus, SignalR, Key Vault) · ML.NET · Kubernetes · Bicep IaC · GitHub Actions
+
+---
+
+## Run Locally
+
+**Prerequisites:** Docker Desktop, .NET 8 SDK, Node.js 20+
+
+```bash
+git clone https://github.com/YOUR_USERNAME/SystemMonitor.git
+cd SystemMonitor
+start-dev.bat
+```
+
+| URL | |
+|---|---|
+| http://localhost:5173 | Dashboard |
+| http://localhost:5000/swagger | API |
+
+Starts Cosmos DB + Azurite emulators, API, Worker, Agent (3 mock agents), and Dashboard automatically.

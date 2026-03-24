@@ -1,0 +1,203 @@
+version: '3.9'
+
+services:
+
+  # ── Azure emulators / local dev equivalents ──────────────────────────────────
+
+  cosmos-emulator:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    container_name: cosmos
+    ports:
+      - "8081:8081"
+      - "10251-10254:10251-10254"
+    environment:
+      AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 10
+      AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "true"
+    volumes:
+      - cosmos-data:/tmp/cosmos/appdata
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-k", "https://localhost:8081/_explorer/emulator.pem"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: azurite
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite-data:/data
+
+  # ── Application services ────────────────────────────────────────────────────
+
+  api:
+    build:
+      context: .
+      dockerfile: src/SystemMonitor.Api/Dockerfile
+    container_name: api-service
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      CosmosDb__Endpoint:  "https://cosmos-emulator:8081/"
+      CosmosDb__Key:       "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+      CosmosDb__Database:  "SystemMonitor"
+      ServiceBus__UseInMemory: "true"
+      AzureSignalR__ConnectionString: ""     # Empty = use local SignalR (no Azure)
+      AiService__BaseUrl:  "http://ai-service:8080"
+      Cors__Origins__0:    "http://localhost:5173"
+    depends_on:
+      cosmos-emulator:
+        condition: service_healthy
+    networks:
+      - sysmon
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/SystemMonitor.Worker/Dockerfile
+    container_name: worker
+    environment:
+      CosmosDb__Endpoint:  "https://cosmos-emulator:8081/"
+      CosmosDb__Key:       "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
+      CosmosDb__Database:  "SystemMonitor"
+      ServiceBus__UseInMemory: "true"
+      SignalR__HubUrl:     "http://api-service:8080/hubs/monitoring"
+      AiService__BaseUrl:  "http://ai-service:8080"
+    depends_on:
+      - api
+    networks:
+      - sysmon
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: src/SystemMonitor.AiService/Dockerfile
+    container_name: ai-service
+    ports:
+      - "5002:8080"
+    environment:
+      AzureStorage__ConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OWBRGIIa9j79IZ/7w==;BlobEndpoint=http://azurite:10000/devstoreaccount1;"
+      AzureStorage__ModelContainer: "ai-models"
+    depends_on:
+      - azurite
+    networks:
+      - sysmon
+
+  # Real agent - collects actual host metrics
+  agent:
+    build:
+      context: .
+      dockerfile: src/SystemMonitor.Agent/Dockerfile
+    container_name: agent-real-001
+    environment:
+      Agent__Id:          "agent-real-001"
+      Agent__HostName:    "real-host-01"
+      Agent__Environment: "development"
+      Api__BaseUrl:       "http://api-service:8080/"
+      Api__AgentKey:      "dev-key"
+      MockData__Enabled:  "false"
+    depends_on:
+      - api
+    networks:
+      - sysmon
+
+  # Mock agents - synthetic data with anomaly injection
+  mock-agent-1:
+    build:
+      context: .
+      dockerfile: src/SystemMonitor.Agent/Dockerfile
+    container_name: mock-agent-001
+    environment:
+      Agent__Id:                     "mock-agent-001"
+      Agent__HostName:               "mock-host-01"
+      Agent__Environment:            "development"
+      Agent__CollectIntervalSeconds: "10"
+      Agent__FlushIntervalSeconds:   "30"
+      Api__BaseUrl:                  "http://api-service:8080/"
+      Api__AgentKey:                 "dev-key"
+      MockData__Enabled:             "true"
+      MockData__AnomalyProbability:  "0.04"
+      MockData__LogBurstProbability: "0.02"
+    depends_on:
+      - api
+    networks:
+      - sysmon
+
+  mock-agent-2:
+    build:
+      context: .
+      dockerfile: src/SystemMonitor.Agent/Dockerfile
+    container_name: mock-agent-002
+    environment:
+      Agent__Id:                     "mock-agent-002"
+      Agent__HostName:               "mock-host-02"
+      Agent__Environment:            "development"
+      Agent__CollectIntervalSeconds: "10"
+      Agent__FlushIntervalSeconds:   "30"
+      Api__BaseUrl:                  "http://api-service:8080/"
+      Api__AgentKey:                 "dev-key"
+      MockData__Enabled:             "true"
+      MockData__AnomalyProbability:  "0.06"
+      MockData__LogBurstProbability: "0.03"
+    depends_on:
+      - api
+    networks:
+      - sysmon
+
+  mock-agent-3:
+    build:
+      context: .
+      dockerfile: src/SystemMonitor.Agent/Dockerfile
+    container_name: mock-agent-003
+    environment:
+      Agent__Id:                     "mock-agent-003"
+      Agent__HostName:               "mock-host-03"
+      Agent__Environment:            "development"
+      Agent__CollectIntervalSeconds: "10"
+      Agent__FlushIntervalSeconds:   "30"
+      Api__BaseUrl:                  "http://api-service:8080/"
+      Api__AgentKey:                 "dev-key"
+      MockData__Enabled:             "true"
+      MockData__AnomalyProbability:  "0.02"
+      MockData__LogBurstProbability: "0.01"
+    depends_on:
+      - api
+    networks:
+      - sysmon
+
+  # DataSeeder: docker compose --profile seed up seeder
+  seeder:
+    build:
+      context: .
+      dockerfile: src/SystemMonitor.DataSeeder/Dockerfile
+    container_name: data-seeder
+    profiles: ["seed"]
+    command: ["--mode=all", "--agents=3", "--hours=24", "--api=http://api-service:8080"]
+    depends_on:
+      - api
+    networks:
+      - sysmon
+
+  dashboard:
+    build:
+      context: src/dashboard
+      dockerfile: Dockerfile
+    container_name: dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - sysmon
+
+networks:
+  sysmon:
+    driver: bridge
+
+volumes:
+  cosmos-data:
+  azurite-data:

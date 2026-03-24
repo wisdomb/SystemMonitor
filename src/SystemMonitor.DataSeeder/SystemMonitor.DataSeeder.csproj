@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SystemMonitor.DataSeeder</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console" Version="0.49.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SystemMonitor.Shared\SystemMonitor.Shared.csproj" />
+    <ProjectReference Include="..\SystemMonitor.Agent\SystemMonitor.Agent.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+# DaemonSet ensures one agent pod per node, giving you host-level metrics
+kind: DaemonSet
+metadata:
+  name: agent
+  namespace: sysmon
+  labels:
+    app: agent
+spec:
+  selector:
+    matchLabels:
+      app: agent
+  template:
+    metadata:
+      labels:
+        app: agent
+    spec:
+      hostPID: true        # needed to read /proc for real host metrics
+      hostNetwork: false
+      containers:
+        - name: agent
+          image: YOUR_ACR.azurecr.io/sysmon-agent:latest
+          env:
+            - name: Agent__Id
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName   # use node name as agent ID
+            - name: Agent__Environment
+              value: "production"
+            - name: Api__BaseUrl
+              value: "http://api-service:8080/"
+          envFrom:
+            - secretRef:
+                name: sysmon-secrets
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+      tolerations:
+        # Run on every node including control-plane
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule

@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sysmon
+  labels:
+    app.kubernetes.io/managed-by: kubectl
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sysmon-config
+  namespace: sysmon
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  CosmosDb__Database: "SystemMonitor"
+  AiService__BaseUrl: "http://ai-service:8080"
+  SignalR__HubUrl:    "http://api-service:8080/hubs/monitoring"
+---
+# External secrets — populate these from Azure Key Vault via CSI driver
+# or manually with: kubectl create secret generic sysmon-secrets -n sysmon \
+#   --from-literal=CosmosDb__Endpoint=... --from-literal=CosmosDb__Key=... etc.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysmon-secrets
+  namespace: sysmon
+type: Opaque
+stringData:
+  CosmosDb__Endpoint:               "REPLACE_ME"
+  CosmosDb__Key:                    "REPLACE_ME"
+  ServiceBus__ConnectionString:     "REPLACE_ME"
+  AzureSignalR__ConnectionString:   "REPLACE_ME"
+  AzureStorage__ConnectionString:   "REPLACE_ME"
+  ApplicationInsights__ConnectionString: "REPLACE_ME"

@@ -1,0 +1,33 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+appsettings.Development.json
+*.log
+
+# Node / Vue
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+src/dashboard/dist/
+src/dashboard/.vite/
+
+# Rider / VS Code
+.idea/
+.vscode/
+*.DotSettings.user
+
+# Docker
+.dockerignore
+.docker/
+
+# Azure / secrets
+*.pfx
+*.key
+local.settings.json
+.DS_Store
+Thumbs.db
