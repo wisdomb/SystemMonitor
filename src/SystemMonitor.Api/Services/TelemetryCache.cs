@@ -5,9 +5,13 @@ namespace SystemMonitor.Api.Services;
 public class TelemetryCache
 {
     private readonly object _lock = new();
+
     private readonly Dictionary<string, AgentSnapshot> _agents = new();
+
     private readonly Queue<LogEvent> _recentLogs = new();
+    private readonly Queue<SchemaResolutionEvent> _schemaEvents = new();
     private const int MaxLogs = 500;
+
     private readonly Queue<ActivityEntry> _activityLog = new();
     private const int MaxActivity = 200;
 
@@ -78,6 +82,21 @@ public class TelemetryCache
                 while (_recentLogs.Count > MaxLogs) _recentLogs.Dequeue();
             }
         }
+    }
+
+    public void RecordSchemaEvent(SchemaResolutionEvent evt)
+    {
+        lock (_lock)
+        {
+            _schemaEvents.Enqueue(evt);
+            while (_schemaEvents.Count > 200) _schemaEvents.Dequeue();
+        }
+    }
+
+    public List<SchemaResolutionEvent> GetSchemaEvents(int limit = 100)
+    {
+        lock (_lock)
+            return _schemaEvents.TakeLast(limit).OrderByDescending(e => e.DetectedAt).ToList();
     }
 
     public void RecordAnomaly(AnomalyResult anomaly)

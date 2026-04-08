@@ -41,7 +41,6 @@ const SEV_LABEL: Record<string | number, string> = {
 function sevClass(s: any) { return SEV_MAP[s] ?? 'low' }
 function sevLabel(s: any) { return SEV_LABEL[s] ?? String(s) }
 
-// Sort newest first, strictly cap at max — no TransitionGroup so no DOM bleed
 const displayList = computed(() =>
   [...props.anomalies]
     .sort((a, b) =>

@@ -1,7 +1,7 @@
 import { onMounted, onUnmounted } from 'vue'
 import * as signalR from '@microsoft/signalr'
 import { useMonitoringStore } from '@/stores/monitoring'
-import type { AnomalyResult } from '@/types'
+import type { AnomalyResult, SchemaResolutionEvent } from '@/types'
 
 let connection: signalR.HubConnection | null = null
 
@@ -35,6 +35,10 @@ export function useSignalR() {
       store.onLiveAnomaly(anomaly)
     })
 
+    connection.on('SchemaEventDetected', (evt: SchemaResolutionEvent) => {
+      store.onSchemaEvent(evt)
+    })
+
     connection.on('BroadcastHealthScore', (payload: { agentId: string; score: number }) => {
       store.onHealthScoreUpdate(payload.agentId, payload.score)
     })
@@ -50,7 +54,6 @@ export function useSignalR() {
     try {
       await connection.start()
       store.setConnected(true)
-      console.info('[SignalR] Connected')
     } catch (err) {
       console.error('[SignalR] Connection failed', err)
       store.setConnected(false)

@@ -36,8 +36,8 @@ IHost host = Host.CreateDefaultBuilder(args)
         {
             var capturedCfg = agentCfg;
             services.AddHostedService(sp => new AgentWorker(
-                new MockMetricGenerator(sp.GetRequiredService<IConfiguration>()),
-                new MockLogGenerator(sp.GetRequiredService<IConfiguration>()),
+                new MockMetricGenerator(),
+                new MockLogGenerator(),
                 new TelemetrySender(
                     sp.GetRequiredService<IHttpClientFactory>(),
                     cfg,

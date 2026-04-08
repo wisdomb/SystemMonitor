@@ -10,6 +10,7 @@ public class AnalyticsController : ControllerBase
 {
     private readonly IAnalyticsService _analytics;
 
+
     public AnalyticsController(IAnalyticsService analytics)
         => _analytics = analytics;
 
@@ -71,4 +72,8 @@ public class AnalyticsController : ControllerBase
     [HttpGet("metrics/{agentId}")]
     public IActionResult GetAvailableMetrics(string agentId)
         => Ok(_analytics.GetAvailableMetrics(agentId));
+
+    [HttpGet("schema-events")]
+    public IActionResult GetSchemaEvents([FromQuery] int limit = 100)
+        => Ok(_cache.GetSchemaEvents(limit));
 }

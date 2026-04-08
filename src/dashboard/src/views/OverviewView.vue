@@ -1,18 +1,14 @@
 <template>
   <div class="overview">
-
-    <!-- Agent selector bar -->
     <div class="agent-bar">
       <div class="agent-bar-left">
         <span class="agent-bar-label">Viewing</span>
 
-        <!-- "All Agents" pill -->
         <button class="agent-pill" :class="{ active: !selectedAgent }" @click="selectedAgent = ''">
           All Agents
           <span class="pill-count">{{ store.agentList.length }}</span>
         </button>
 
-        <!-- One pill per active agent -->
         <button v-for="a in store.agentList" :key="a.agentId" class="agent-pill" :class="{
           active: selectedAgent === a.agentId,
           warn: a.score < 80 && a.score >= 50,
@@ -24,7 +20,6 @@
         </button>
       </div>
 
-      <!-- Context label -->
       <div class="agent-bar-right">
         <span v-if="selectedAgent" class="context-label">
           Showing data for <strong>{{ selectedAgent }}</strong>
@@ -36,7 +31,6 @@
       </div>
     </div>
 
-    <!-- KPI Row -->
     <div class="kpi-row">
       <KpiCard label="Active Agents" :value="kpis.activeAgents" :total="store.summary?.totalAgents ?? 0" icon="cpu"
         color="accent" to="/agents" />
@@ -52,16 +46,14 @@
         color="danger" to="/logs" />
     </div>
 
-    <!-- Main Grid -->
     <div class="grid-main">
-      <!-- Left: Agent health + anomaly feed -->
       <div class="col-left">
         <PanelCard title="Agent Health">
           <AgentHealthList :highlight="selectedAgent" @select="selectedAgent = $event" />
         </PanelCard>
 
-        <PanelCard title="Live Anomaly Feed">
-          <AnomalyFeed :anomalies="filteredLiveFeed" :max="5" />
+        <PanelCard title="Attribute Changes">
+          <SchemaEventFeed :events="filteredSchemaFeed" :max="5" />
         </PanelCard>
       </div>
 
@@ -86,19 +78,17 @@ import { useMonitoringStore } from '@/stores/monitoring'
 import KpiCard from '@/components/KpiCard.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import AgentHealthList from '@/components/AgentHealthList.vue'
-import AnomalyFeed from '@/components/AnomalyFeed.vue'
+import SchemaEventFeed from '@/components/SchemaEventFeed.vue'
 import SystemOverviewChart from '@/components/SystemOverviewChart.vue'
 import InfraStatus from '@/components/InfraStatus.vue'
 
 const store = useMonitoringStore()
 const selectedAgent = ref('')
 
-// ── Filtered anomalies ────────────────────────────────────────────────────────
-// Only live anomalies (SignalR pushed) for the overview feed — doesn't grow with polls
-const filteredLiveFeed = computed(() => {
-  const live = store.liveAnomalies
-  if (!selectedAgent.value) return live
-  return live.filter(a => a.agentId === selectedAgent.value)
+const filteredSchemaFeed = computed(() => {
+  const evts = store.schemaEvents
+  if (!selectedAgent.value) return evts
+  return evts.filter(e => e.agentId === selectedAgent.value)
 })
 
 const filteredAnomalies = computed(() => {
@@ -106,10 +96,8 @@ const filteredAnomalies = computed(() => {
   return store.criticalAnomalies.filter(a => a.agentId === selectedAgent.value)
 })
 
-// ── KPIs — agent-scoped or aggregate ─────────────────────────────────────────
 const kpis = computed(() => {
   if (!selectedAgent.value) {
-    // Aggregate — use store summary as-is
     return {
       activeAgents: store.summary?.activeAgents ?? 0,
       anomaliesLast1h: store.summary?.anomaliesLast1h ?? 0,
@@ -118,7 +106,6 @@ const kpis = computed(() => {
     }
   }
 
-  // Single agent — filter down
   const agent = store.agentList.find(a => a.agentId === selectedAgent.value)
   const anomalies = store.criticalAnomalies.filter(a => a.agentId === selectedAgent.value)
   const critical = anomalies.filter(a => a.severity === 'Critical')
@@ -145,7 +132,6 @@ const chartTitle = computed(() =>
   gap: 16px;
 }
 
-/* ── Agent selector bar ────────────────────────────────────────────────────── */
 .agent-bar {
   display: flex;
   align-items: center;
@@ -262,14 +248,12 @@ const chartTitle = computed(() =>
   color: var(--text-muted);
 }
 
-/* ── KPI row ──────────────────────────────────────────────────────────────── */
 .kpi-row {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 12px;
 }
 
-/* ── Main grid ────────────────────────────────────────────────────────────── */
 .grid-main {
   display: grid;
   grid-template-columns: 320px 1fr;

@@ -34,19 +34,15 @@ public class AgentWorker : BackgroundService
     {
         bool mockEnabled = _globalCfg.GetValue<bool>("MockData:Enabled", true);
         double anomalyProb = _agentCfg.AnomalyProbability
-                           ?? _globalCfg.GetValue<double>("MockData:AnomalyProbability", 0.15);
-        double logBurstProb = _globalCfg.GetValue<double>("MockData:LogBurstProbability", 0.10);
-        int collectSecs = _agentCfg.CollectIntervalSeconds;
-        int flushSecs = _agentCfg.FlushIntervalSeconds;
+                        ?? _globalCfg.GetValue<double>("MockData:AnomalyProbability", 0.12);
+        double logBurstProb = _globalCfg.GetValue<double>("MockData:LogBurstProbability", 0.08);
 
         _logger.LogInformation(
-            "Agent {Id} ({Host}) started in {Mode} mode — collecting every {C}s, flushing every {F}s",
-            _agentCfg.Id, _agentCfg.HostName,
-            mockEnabled ? "MOCK" : "REAL",
-            collectSecs, flushSecs);
+            "Agent {Id} ({Host}) [{Profile}] started — anomaly={Prob:P0}",
+            _agentCfg.Id, _agentCfg.HostName, _agentCfg.Profile, anomalyProb);
 
-        using var collectTimer = new PeriodicTimer(TimeSpan.FromSeconds(collectSecs));
-        using var flushTimer = new PeriodicTimer(TimeSpan.FromSeconds(flushSecs));
+        using var collectTimer = new PeriodicTimer(TimeSpan.FromSeconds(_agentCfg.CollectIntervalSeconds));
+        using var flushTimer = new PeriodicTimer(TimeSpan.FromSeconds(_agentCfg.FlushIntervalSeconds));
 
         await Task.WhenAll(
             CollectLoop(collectTimer, mockEnabled, anomalyProb, logBurstProb, stoppingToken),
@@ -63,16 +59,17 @@ public class AgentWorker : BackgroundService
         {
             try
             {
-                if (mock)
-                {
-                    var metric = _mockMetrics.Generate(
-                        _agentCfg.Id, _agentCfg.HostName, anomalyProb);
-                    _sender.EnqueueMetric(metric);
+                if (!mock) continue;
 
-                    var logs = _mockLogs.Generate(
-                        _agentCfg.Id, _agentCfg.HostName, logBurstProb);
-                    foreach (var l in logs) _sender.EnqueueLog(l);
-                }
+                var metric = _mockMetrics.Generate(
+                    _agentCfg.Id, _agentCfg.HostName,
+                    _agentCfg.Profile, anomalyProb);
+                _sender.EnqueueMetric(metric);
+
+                var logs = _mockLogs.Generate(
+                    _agentCfg.Id, _agentCfg.HostName,
+                    _agentCfg.Profile, logBurstProb);
+                foreach (var l in logs) _sender.EnqueueLog(l);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -85,10 +82,7 @@ public class AgentWorker : BackgroundService
     {
         while (await timer.WaitForNextTickAsync(ct))
         {
-            try
-            {
-                await _sender.FlushAsync(_agentCfg.Id, _agentCfg.HostName, ct);
-            }
+            try { await _sender.FlushAsync(_agentCfg.Id, _agentCfg.HostName, ct); }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "Flush error for agent {Id}", _agentCfg.Id);
@@ -102,6 +96,7 @@ public class AgentConfig
     public string Id { get; set; } = "agent-001";
     public string HostName { get; set; } = "localhost";
     public string Environment { get; set; } = "production";
+    public string Profile { get; set; } = "web";
     public int CollectIntervalSeconds { get; set; } = 10;
     public int FlushIntervalSeconds { get; set; } = 30;
     public double? AnomalyProbability { get; set; } = null;

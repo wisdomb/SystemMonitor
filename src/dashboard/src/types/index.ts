@@ -97,3 +97,15 @@ export enum AnomalySeverity {
   High = 'High',
   Critical = 'Critical'
 }
+
+export interface SchemaResolutionEvent {
+  id: string
+  agentId: string
+  hostName: string
+  rawAttribute: string
+  resolvedAttribute: string | null
+  confidence: number
+  resolutionTier: string
+  wasResolved: boolean
+  detectedAt: string
+}
